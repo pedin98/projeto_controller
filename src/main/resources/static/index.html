@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Controle de Expedicao de Materiais</title>
+  <style>
+    :root {
+      --azul: #1d4ed8;
+      --azul-escuro: #1e3a8a;
+      --cinza-bg: #f1f5f9;
+      --borda: #cbd5e1;
+      --texto: #1e293b;
+      --verde: #15803d;
+      --verde-bg: #dcfce7;
+      --amarelo: #a16207;
+      --amarelo-bg: #fef9c3;
+      --vermelho: #b91c1c;
+      --vermelho-bg: #fee2e2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+      background: var(--cinza-bg);
+      color: var(--texto);
+      line-height: 1.5;
+    }
+    header {
+      background: var(--azul-escuro);
+      color: #fff;
+      padding: 16px 24px;
+    }
+    header h1 { margin: 0; font-size: 20px; }
+    main {
+      max-width: 1000px;
+      margin: 24px auto;
+      padding: 0 16px;
+      display: grid;
+      gap: 24px;
+    }
+    section {
+      background: #fff;
+      border: 1px solid var(--borda);
+      border-radius: 8px;
+      padding: 20px;
+    }
+    section h2 {
+      margin: 0 0 16px;
+      font-size: 16px;
+      color: var(--azul-escuro);
+      border-bottom: 1px solid var(--borda);
+      padding-bottom: 8px;
+    }
+    form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      font-size: 13px;
+      font-weight: 600;
+      gap: 4px;
+    }
+    input, select {
+      padding: 8px 10px;
+      border: 1px solid var(--borda);
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    button {
+      padding: 9px 16px;
+      border: 0;
+      border-radius: 6px;
+      background: var(--azul);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: var(--azul-escuro); }
+    button.secundario { background: #64748b; }
+    button.secundario:hover { background: #475569; }
+    button.perigo { background: var(--vermelho); }
+    button.perigo:hover { background: #991b1b; }
+    button.mini { padding: 4px 10px; font-size: 12px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--borda);
+    }
+    th { background: #f8fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge.PENDENTE { background: var(--amarelo-bg); color: var(--amarelo); }
+    .badge.CONCLUIDO { background: var(--verde-bg); color: var(--verde); }
+    .badge.CANCELADO { background: var(--vermelho-bg); color: var(--vermelho); }
+    #toast {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      max-width: 380px;
+      display: grid;
+      gap: 8px;
+      z-index: 50;
+    }
+    .msg {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.15);
+      white-space: pre-line;
+    }
+    .msg.ok { background: var(--verde-bg); color: var(--verde); border: 1px solid #86efac; }
+    .msg.erro { background: var(--vermelho-bg); color: var(--vermelho); border: 1px solid #fca5a5; }
+    .acoes { display: flex; gap: 6px; }
+    .vazio { color: #94a3b8; font-style: italic; padding: 12px 10px; }
+    .campo-full { grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Controle de Expedicao de Materiais</h1>
+  </header>
+
+  <main>
+    <section>
+      <h2>Cadastrar material</h2>
+      <form id="form-material">
+        <label>Nome
+          <input name="nome" required placeholder="Parafuso sextavado M8">
+        </label>
+        <label>SKU
+          <input name="sku" required maxlength="50" placeholder="PAR-M8-001">
+        </label>
+        <label>Quantidade em estoque
+          <input name="quantidadeEstoque" type="number" min="0" required value="0">
+        </label>
+        <label>Unidade de medida
+          <input name="unidadeMedida" required maxlength="10" placeholder="UN">
+        </label>
+        <button type="submit">Salvar material</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Materiais</h2>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Nome</th><th>SKU</th><th>Estoque</th><th>Unid.</th><th></th></tr>
+        </thead>
+        <tbody id="tbody-materiais"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Cadastrar expedicao</h2>
+      <form id="form-expedicao">
+        <label>Material
+          <select name="materialId" required></select>
+        </label>
+        <label>Quantidade a expedir
+          <input name="quantidadeExpedida" type="number" min="1" required value="1">
+        </label>
+        <label>Destinatario
+          <input name="destinatario" required placeholder="Obra Zona Norte">
+        </label>
+        <button type="submit">Criar expedicao</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Expedicoes</h2>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Material</th><th>Qtd</th><th>Destinatario</th><th>Criacao</th><th>Status</th><th>Acoes</th></tr>
+        </thead>
+        <tbody id="tbody-expedicoes"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+
+  <script>
+    const API = "/api";
+
+    function toast(texto, tipo = "ok") {
+      const div = document.createElement("div");
+      div.className = "msg " + tipo;
+      div.textContent = texto;
+      document.getElementById("toast").appendChild(div);
+      setTimeout(() => div.remove(), tipo === "erro" ? 7000 : 3500);
+    }
+
+    // Faz a requisicao e, em caso de erro, extrai a mensagem do corpo ApiError.
+    async function req(url, options) {
+      const resp = await fetch(url, options);
+      const texto = await resp.text();
+      const corpo = texto ? JSON.parse(texto) : null;
+      if (!resp.ok) {
+        let msg = (corpo && corpo.message) || ("HTTP " + resp.status);
+        if (corpo && Array.isArray(corpo.campos) && corpo.campos.length) {
+          msg += "\n" + corpo.campos.map(c => "- " + c.campo + ": " + c.mensagem).join("\n");
+        }
+        throw new Error(msg);
+      }
+      return corpo;
+    }
+
+    function fmtData(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      return d.toLocaleString("pt-BR");
+    }
+
+    async function carregarMateriais() {
+      const materiais = await req(API + "/materiais");
+      const tbody = document.getElementById("tbody-materiais");
+      const select = document.querySelector("#form-expedicao select[name=materialId]");
+
+      tbody.innerHTML = materiais.length ? "" : '<tr><td colspan="6" class="vazio">Nenhum material cadastrado.</td></tr>';
+      select.innerHTML = '<option value="">Selecione...</option>';
+
+      for (const m of materiais) {
+        tbody.insertAdjacentHTML("beforeend", `
+          <tr>
+            <td>${m.id}</td>
+            <td>${m.nome}</td>
+            <td>${m.sku}</td>
+            <td>${m.quantidadeEstoque}</td>
+            <td>${m.unidadeMedida}</td>
+            <td><button class="mini perigo" data-del-material="${m.id}">Excluir</button></td>
+          </tr>`);
+        select.insertAdjacentHTML("beforeend",
+          `<option value="${m.id}">${m.sku} - ${m.nome} (estoque: ${m.quantidadeEstoque})</option>`);
+      }
+    }
+
+    async function carregarExpedicoes() {
+      const expedicoes = await req(API + "/expedicoes");
+      const tbody = document.getElementById("tbody-expedicoes");
+      tbody.innerHTML = expedicoes.length ? "" : '<tr><td colspan="7" class="vazio">Nenhuma expedicao registrada.</td></tr>';
+
+      for (const e of expedicoes) {
+        const acoes = e.status === "PENDENTE"
+          ? `<div class="acoes">
+               <button class="mini" data-concluir="${e.id}">Concluir</button>
+               <button class="mini secundario" data-cancelar="${e.id}">Cancelar</button>
+             </div>`
+          : "-";
+        tbody.insertAdjacentHTML("beforeend", `
+          <tr>
+            <td>${e.id}</td>
+            <td>${e.material.sku}</td>
+            <td>${e.quantidadeExpedida}</td>
+            <td>${e.destinatario}</td>
+            <td>${fmtData(e.dataCriacao)}</td>
+            <td><span class="badge ${e.status}">${e.status}</span></td>
+            <td>${acoes}</td>
+          </tr>`);
+      }
+    }
+
+    async function recarregar() {
+      try {
+        await carregarMateriais();
+        await carregarExpedicoes();
+      } catch (err) {
+        toast("Falha ao carregar dados: " + err.message, "erro");
+      }
+    }
+
+    document.getElementById("form-material").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const f = ev.target;
+      const payload = {
+        nome: f.nome.value.trim(),
+        sku: f.sku.value.trim(),
+        quantidadeEstoque: Number(f.quantidadeEstoque.value),
+        unidadeMedida: f.unidadeMedida.value.trim()
+      };
+      try {
+        const m = await req(API + "/materiais", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        toast(`Material #${m.id} (${m.sku}) cadastrado.`);
+        f.reset();
+        f.quantidadeEstoque.value = 0;
+        recarregar();
+      } catch (err) {
+        toast(err.message, "erro");
+      }
+    });
+
+    document.getElementById("form-expedicao").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const f = ev.target;
+      const payload = {
+        materialId: Number(f.materialId.value),
+        quantidadeExpedida: Number(f.quantidadeExpedida.value),
+        destinatario: f.destinatario.value.trim()
+      };
+      try {
+        const e = await req(API + "/expedicoes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        toast(`Expedicao #${e.id} criada (${e.status}).`);
+        f.reset();
+        f.quantidadeExpedida.value = 1;
+        recarregar();
+      } catch (err) {
+        toast(err.message, "erro");
+      }
+    });
+
+    // Delegacao de eventos para os botoes das tabelas.
+    document.body.addEventListener("click", async (ev) => {
+      const btn = ev.target.closest("button");
+      if (!btn) return;
+      try {
+        if (btn.dataset.concluir) {
+          const e = await req(`${API}/expedicoes/${btn.dataset.concluir}/conclusao`, { method: "PATCH" });
+          toast(`Expedicao #${e.id} concluida. Estoque de ${e.material.sku}: ${e.material.quantidadeEstoque}.`);
+          recarregar();
+        } else if (btn.dataset.cancelar) {
+          const e = await req(`${API}/expedicoes/${btn.dataset.cancelar}/cancelamento`, { method: "PATCH" });
+          toast(`Expedicao #${e.id} cancelada.`);
+          recarregar();
+        } else if (btn.dataset.delMaterial) {
+          if (!confirm("Excluir material #" + btn.dataset.delMaterial + "?")) return;
+          const resp = await fetch(`${API}/materiais/${btn.dataset.delMaterial}`, { method: "DELETE" });
+          if (!resp.ok) {
+            const c = await resp.json().catch(() => null);
+            throw new Error((c && c.message) || ("HTTP " + resp.status));
+          }
+          toast("Material excluido.");
+          recarregar();
+        }
+      } catch (err) {
+        toast(err.message, "erro");
+      }
+    });
+
+    recarregar();
+  </script>
+</body>
+</html>
